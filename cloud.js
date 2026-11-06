@@ -2,8 +2,8 @@
    SB_URL, SB_KEY는 Supabase 대시보드 → Project Settings → API 의
    Project URL 과 anon public key 입니다. anon key는 공개돼도 되는 키이고,
    자료 보호는 supabase/schema.sql 의 RLS 규칙이 맡습니다. */
-const SB_URL = "";
-const SB_KEY = "";
+const SB_URL = "https://fbenribwvmkzsxdutbcf.supabase.co";
+const SB_KEY = "sb_publishable_YVIQp_bn9DehRBCPlBmApA_uF7ch-AI";
 
 const CUR_KEY = "bangje-calc-cur";
 const cloud = { sb: null, user: null, admin: false, sites: [], years: [], cur: null, status: "", msg: "", busy: false, confirmDel: null, ready: false };
