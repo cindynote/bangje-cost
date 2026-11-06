@@ -68,6 +68,9 @@ grant select on public.base_years to anon, authenticated;
 grant select, insert, update, delete on public.sites to authenticated;
 grant select on public.admins to authenticated;
 grant insert, update, delete on public.base_years to authenticated;
+grant usage on schema public to anon, authenticated;
+grant execute on function public.is_admin() to authenticated;
+revoke execute on function public.is_admin() from anon;
 
 -- 4) 2026년 기준값 넣기 ------------------------------------------------------
 insert into public.base_years (year, data, note) values
