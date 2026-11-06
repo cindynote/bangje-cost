@@ -6,7 +6,7 @@ const SB_URL = "https://fbenribwvmkzsxdutbcf.supabase.co";
 const SB_KEY = "sb_publishable_YVIQp_bn9DehRBCPlBmApA_uF7ch-AI";
 
 const CUR_KEY = "bangje-calc-cur";
-const cloud = { sb: null, user: null, admin: false, sites: [], years: [], cur: null, status: "", msg: "", busy: false, confirmDel: null, ready: false };
+const cloud = { confirmWd: false, wdMsg: "", sb: null, user: null, admin: false, sites: [], years: [], cur: null, status: "", msg: "", busy: false, confirmDel: null, ready: false };
 
 function curGet() { try { return JSON.parse(localStorage.getItem(CUR_KEY) || "null"); } catch (e) { return null; } }
 function curSet(v) { cloud.cur = v; try { v ? localStorage.setItem(CUR_KEY, JSON.stringify(v)) : localStorage.removeItem(CUR_KEY); } catch (e) {} }
@@ -68,11 +68,12 @@ function vSites() {
         <label class="f" for="lgEmail">이메일<input id="lgEmail" type="email" autocomplete="email" required></label>
         <label class="f" for="lgPw">비밀번호 (6자 이상)<input id="lgPw" type="password" autocomplete="current-password" minlength="6" required></label>
       </form>
+      <label class="agree" for="lgAgree"><input id="lgAgree" type="checkbox"> <span><a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a>을 읽었고 동의합니다 (회원가입 시 필수)</span></label>
       <div class="actions"><button class="btn primary" data-act="login" ${cloud.busy ? "disabled" : ""}>로그인</button><button class="btn" data-act="signup" ${cloud.busy ? "disabled" : ""}>회원가입</button></div>
       <p class="msg" id="authMsg">${esc(cloud.msg)}</p>
     </div>
     <div class="card"><strong>저장되는 정보</strong>
-      <p class="note">가입할 때 이메일 주소만 받아요. 현장 자료는 본인 계정에서만 보이고 다른 사용자는 볼 수 없어요. 서비스 운영자는 데이터베이스 관리 화면에서 자료에 접근할 수 있으니, 개인 연락처 같은 민감한 정보는 넣지 마세요.</p></div>
+      <p class="note">가입할 때 이메일 주소만 받아요. 현장 자료는 본인 계정에서만 보이고 다른 사용자는 볼 수 없어요. 서비스 운영자는 데이터베이스 관리 화면에서 자료에 접근할 수 있으니, 개인 연락처 같은 민감한 정보는 넣지 마세요. 자세한 내용은 <a href="privacy.html" target="_blank" rel="noopener">개인정보 처리방침</a>을 보세요.</p></div>
   </section>`;
   const yOpts = cloud.years.map(y => `<option value="${y.year}">${y.year}년 기준</option>`).join("") || `<option value="">기본값</option>`;
   return `<section class="panel">
@@ -93,6 +94,13 @@ function vSites() {
         <div class="acts">${isCur ? "" : `<button class="btn primary" data-act="open" data-id="${s.id}">열기</button>`}<button class="btn" data-act="dup" data-id="${s.id}">복제</button>${del}</div>
       </div>`;
     }).join("") : `<div class="card"><p class="note">아직 저장한 현장이 없어요. 위에서 빈 현장을 만들거나, 지금 입력한 내용을 새 현장으로 저장하세요.</p></div>`}
+    <details${cloud.confirmWd || cloud.wdMsg ? " open" : ""}><summary>계정 관리</summary>
+      <p class="note">회원 탈퇴를 하면 계정과 저장한 현장 ${cloud.sites.length}곳이 모두 바로 삭제되고 되살릴 수 없어요. 필요한 현장은 먼저 엑셀로 내보내 두세요.</p>
+      <div class="confirm">${cloud.confirmWd
+        ? `<span class="note">정말 탈퇴할까요?</span><button class="btn primary" data-act="wdyes">탈퇴하고 모두 삭제</button><button class="btn" data-act="wdno">취소</button>`
+        : `<button class="btn" data-act="wd">회원 탈퇴</button>`}</div>
+      <p class="msg">${esc(cloud.wdMsg || "")}</p>
+    </details>
   </section>`;
 }
 
@@ -141,13 +149,16 @@ async function act(a, id) {
   const sb = cloud.sb; cloud.msg = "";
   try {
     if (a === "login" || a === "signup") {
+      const say = m => { cloud.msg = m; const el = document.getElementById("authMsg"); if (el) el.textContent = m; };
+      const btns = document.querySelectorAll('[data-act="login"],[data-act="signup"]');
       const email = document.getElementById("lgEmail").value.trim(), password = document.getElementById("lgPw").value;
-      if (!email || password.length < 6) { cloud.msg = "이메일과 6자 이상 비밀번호를 넣어 주세요."; return rr(); }
-      cloud.busy = true; rr();
+      if (!email || password.length < 6) return say("이메일과 6자 이상 비밀번호를 넣어 주세요.");
+      if (a === "signup" && !document.getElementById("lgAgree").checked) return say("회원가입하려면 개인정보 처리방침에 동의해 주세요.");
+      btns.forEach(b => b.disabled = true); say(a === "login" ? "로그인하는 중이에요." : "가입하는 중이에요.");
       const res = a === "login" ? await sb.auth.signInWithPassword({ email, password }) : await sb.auth.signUp({ email, password });
-      cloud.busy = false;
-      if (res.error) { cloud.msg = authErr(res.error.message); return rr(); }
-      if (a === "signup" && !res.data.session) { cloud.msg = "가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요."; return rr(); }
+      btns.forEach(b => b.disabled = false);
+      if (res.error) return say(authErr(res.error.message));
+      if (a === "signup" && !res.data.session) return say("가입 확인 메일을 보냈어요. 메일의 링크를 누른 뒤 로그인하세요.");
       return; // onAuthStateChange 가 화면을 갱신
     }
     if (a === "logout") { await sb.auth.signOut(); return; }
@@ -181,6 +192,18 @@ async function act(a, id) {
       if (error) throw error;
       if (cloud.cur && cloud.cur.id === id) curSet(null);
       cloud.confirmDel = null; await loadSites(); return rr();
+    }
+    if (a === "wd") { cloud.confirmWd = true; cloud.wdMsg = ""; return rr(); }
+    if (a === "wdno") { cloud.confirmWd = false; return rr(); }
+    if (a === "wdyes") {
+      const { error } = await sb.rpc("delete_my_account");
+      if (error) { cloud.wdMsg = "탈퇴를 처리하지 못했어요. 잠시 후 다시 시도해 주세요."; return rr(); }
+      cloud.confirmWd = false; curSet(null); cloud.sites = [];
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      S = defaults();
+      await sb.auth.signOut().catch(() => {});
+      cloud.user = null; cloud.admin = false; cloud.msg = "탈퇴했어요. 계정과 현장 자료를 모두 삭제했어요.";
+      return rr();
     }
     if (a === "applyyear") {
       const y = Number(document.getElementById("applyYear").value), yd = yearData(y);

@@ -72,6 +72,22 @@ grant usage on schema public to anon, authenticated;
 grant execute on function public.is_admin() to authenticated;
 revoke execute on function public.is_admin() from anon;
 
+-- 3-1) 회원 탈퇴 (본인 자료와 계정 삭제) ------------------------------------
+
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth
+as $$
+declare uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not signed in'; end if;
+  delete from public.sites  where user_id = uid;
+  delete from public.admins where user_id = uid;
+  delete from auth.users    where id = uid;
+end $$;
+
+revoke execute on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
 -- 4) 2026년 기준값 넣기 ------------------------------------------------------
 insert into public.base_years (year, data, note) values
   (2026, '{"wage":{"doc":326359,"tech":238447,"lab":172068},"pum":{"doc":0.02,"tech":0.146,"lab":0.073,"spr":0.152,"car":0.218},"equip":{"spr":0,"car":0},"surge":{"high":0,"far":0},"misc":0.02,"tool":0.03,"apply":[1,0.5,0.5,0.4],"shrubL":2,"period":"6개월 이하","periods":[[0.184,0.049],[0.188,0.051],[0.191,0.054],[0.203,0.06]],"ins4":"Y","safeOn":"N","rates":{"ins":0.0356,"emp":0.0101,"hea":0.03595,"ltc":0.1314,"pen":0.0475,"safe":0.0207,"env":0,"gm":0.08,"pr":0.15,"dmg":0,"vat":0.1}}'::jsonb, '수목진료 인건비 2026, 보통인부 2026.1.1, 조달청 제비율 2026.4.13 조경·10억 미만')
